@@ -15,11 +15,19 @@ import (
 // GitHub REST helpers
 // ---------------------------------------------------------------------------
 
+type PRFile struct {
+	Filename  string `json:"filename"`
+	Status    string `json:"status"`
+	Additions int    `json:"additions"`
+	Deletions int    `json:"deletions"`
+	Patch     string `json:"patch"`
+}
+
 type Installation struct {
 	ID int64 `json:"id"`
 }
 
-func getInstallationToken(installationID int64) (string, error) {
+func GetInstallationToken(installationID int64) (string, error) {
 	jwtToken, err := config.GenerateJWT()
 	if err != nil {
 		return "", err
@@ -46,8 +54,8 @@ func getInstallationToken(installationID int64) (string, error) {
 }
 
 
-// githubGet performs a GET request authenticated with the installation token.
-func githubGet(token, url string, out interface{}) error {
+// GithubGet performs a GET request authenticated with the installation token.
+func GithubGet(token, url string, out interface{}) error {
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
@@ -60,8 +68,8 @@ func githubGet(token, url string, out interface{}) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// githubPost performs a POST request authenticated with the installation token.
-func githubPost(token, url string, body interface{}, out interface{}) (int, error) {
+// GithubPost performs a POST request authenticated with the installation token.
+func GithubPost(token, url string, body interface{}, out interface{}) (int, error) {
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequest("POST", url, bytes.NewReader(b))
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -79,8 +87,8 @@ func githubPost(token, url string, body interface{}, out interface{}) (int, erro
 	return resp.StatusCode, nil
 }
 
-// githubPatch performs a PATCH request (for updating issues).
-func githubPatch(token, url string, body interface{}, out interface{}) (int, error) {
+// GithubPatch performs a PATCH request (for updating issues).
+func GithubPatch(token, url string, body interface{}, out interface{}) (int, error) {
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequest("PATCH", url, bytes.NewReader(b))
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -102,21 +110,13 @@ func githubPatch(token, url string, body interface{}, out interface{}) (int, err
 // GitHub paginate: list PR files
 // ---------------------------------------------------------------------------
 
-type PRFile struct {
-	Filename  string `json:"filename"`
-	Status    string `json:"status"`
-	Additions int    `json:"additions"`
-	Deletions int    `json:"deletions"`
-	Patch     string `json:"patch"`
-}
-
-func listPRFiles(token, owner, repo string, pullNumber int) ([]PRFile, error) {
+func ListPRFiles(token, owner, repo string, pullNumber int) ([]PRFile, error) {
 	var all []PRFile
 	page := 1
 	for {
 		url := fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d/files?per_page=100&page=%d", owner, repo, pullNumber, page)
 		var files []PRFile
-		if err := githubGet(token, url, &files); err != nil {
+		if err := GithubGet(token, url, &files); err != nil {
 			return nil, err
 		}
 		all = append(all, files...)
@@ -132,22 +132,22 @@ func listPRFiles(token, owner, repo string, pullNumber int) ([]PRFile, error) {
 // GitHub issue / comment helpers
 // ---------------------------------------------------------------------------
 
-func isIntegrationPermissionError(statusCode int, body string) bool {
+func IsIntegrationPermissionError(statusCode int, body string) bool {
 	return statusCode == 403 && strings.Contains(body, "Resource not accessible by integration")
 }
 
-func safeCreateIssueComment(token, owner, repo string, issueNumber int, body string) error {
+func SafeCreateIssueComment(token, owner, repo string, issueNumber int, body string) error {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/issues/%d/comments", owner, repo, issueNumber)
 	payload := map[string]string{"body": body}
 
 	var result map[string]interface{}
-	status, err := githubPost(token, url, payload, &result)
+	status, err := GithubPost(token, url, payload, &result)
 	if err != nil {
 		return err
 	}
 	if status == 403 {
 		resp403Body, _ := json.Marshal(result)
-		if isIntegrationPermissionError(status, string(resp403Body)) {
+		if IsIntegrationPermissionError(status, string(resp403Body)) {
 			log.Println("Missing GitHub App permission: set Issues to Read and write, then reinstall the app.")
 			return nil
 		}
@@ -160,7 +160,7 @@ type GitHubIssue struct {
 	HTMLURL string `json:"html_url"`
 }
 
-func createGitHubIssue(token, owner, repo string, title, body string, labels []string) (*GitHubIssue, error) {
+func CreateGitHubIssue(token, owner, repo string, title, body string, labels []string) (*GitHubIssue, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/issues", owner, repo)
 	payload := map[string]interface{}{
 		"title":  title,
@@ -168,7 +168,7 @@ func createGitHubIssue(token, owner, repo string, title, body string, labels []s
 		"labels": labels,
 	}
 	var issue GitHubIssue
-	status, err := githubPost(token, url, payload, &issue)
+	status, err := GithubPost(token, url, payload, &issue)
 	if err != nil {
 		return nil, err
 	}
@@ -180,9 +180,9 @@ func createGitHubIssue(token, owner, repo string, title, body string, labels []s
 	return &issue, nil
 }
 
-func closeGitHubIssue(token, owner, repo string, issueNumber int) error {
+func CloseGitHubIssue(token, owner, repo string, issueNumber int) error {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/issues/%d", owner, repo, issueNumber)
 	payload := map[string]string{"state": "closed"}
-	_, err := githubPatch(token, url, payload, nil)
+	_, err := GithubPatch(token, url, payload, nil)
 	return err
 }
