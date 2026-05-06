@@ -13,5 +13,6 @@
 ---
 
 ## About
-
-<p> </p>
+<p> 
+Coderack is a GitHub bot that helps you manage your projects more effectively. It assists with code reviews and security scanning, and supports custom event triggers. It also integrates with platforms like Telegram, Slack, Discord, and more.
+</p>
