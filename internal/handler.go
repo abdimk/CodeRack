@@ -247,6 +247,35 @@ func createSecurityIssueForPR(token, owner, repo string, pullNumber int, prURL, 
 }
 
 // ---------------------------------------------------------------------------
+// Handle newly opened issues
+// ---------------------------------------------------------------------------
+
+func HandleIssueOpened(token string, payload WebhookPayload) {
+	if strings.EqualFold(payload.Sender.Type, "Bot") {
+		return
+	}
+	if payload.Issue == nil {
+		return
+	}
+
+	owner := payload.Repository.Owner.Login
+	repo := payload.Repository.Name
+	issueNumber := payload.Issue.Number
+	opener := payload.Sender.Login
+
+	// Post a friendly acknowledgement comment (no-op if app lacks permission)
+	welcome := fmt.Sprintf("Thanks @%s for opening this issue — the security bot will review it shortly.", opener)
+	if err := utils.SafeCreateIssueComment(token, owner, repo, issueNumber, welcome); err != nil {
+		log.Printf("Failed to post welcome comment on issue #%d: %v", issueNumber, err)
+	}
+
+	// Send a Telegram notification for visibility
+	telegramMsg := fmt.Sprintf("🆕 New issue in %s/%s: #%d opened by @%s\n%s", owner, repo, issueNumber, opener, payload.Repository.HTMLURL)
+	utils.SendTelegramMessage(telegramMsg)
+
+	log.Printf("Handled opened issue #%d in %s/%s", issueNumber, owner, repo)
+}
+
 // Issue comment command handler
 // ---------------------------------------------------------------------------
 
@@ -448,14 +477,14 @@ func handleSummarizeCommand(ctx issueCommandContext) {
 
 func fetchPRContextForCommand(token, owner, repo string, prNumber int) (utils.PRContext, error) {
 	var prData struct {
-		Title        string              `json:"title"`
-		Body         string              `json:"body"`
-		User         WebhookUser         `json:"user"`
-		Base         WebhookBranch       `json:"base"`
-		Head         WebhookBranch       `json:"head"`
-		ChangedFiles int                 `json:"changed_files"`
-		Additions    int                 `json:"additions"`
-		Deletions    int                 `json:"deletions"`
+		Title        string        `json:"title"`
+		Body         string        `json:"body"`
+		User         WebhookUser   `json:"user"`
+		Base         WebhookBranch `json:"base"`
+		Head         WebhookBranch `json:"head"`
+		ChangedFiles int           `json:"changed_files"`
+		Additions    int           `json:"additions"`
+		Deletions    int           `json:"deletions"`
 	}
 
 	prURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d", owner, repo, prNumber)

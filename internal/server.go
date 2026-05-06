@@ -86,6 +86,13 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			HandleIssueCommentCreated(token, payload)
+
+		case "issues":
+			// React to newly opened issues
+			if payload.Action != "opened" {
+				return
+			}
+			HandleIssueOpened(token, payload)
 		}
 	}()
 
