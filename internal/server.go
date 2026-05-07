@@ -11,6 +11,46 @@ import (
 	"github.com/abdimk/coderack/utils"
 )
 
+type Server struct{
+	ListingAdder string 
+}
+
+type apiFunc func(w http.ResponseWriter, r *http.Request) error
+
+type APIError struct{
+	Error string
+}
+
+// logger middleware
+func (s *Server) Logger(next apiFunc) apiFunc {
+	return func(w http.ResponseWriter, r *http.Request) error {
+		fmt.Printf("Method: %s, URL: %s\n", r.Method, r.URL.Path)
+		return next(w, r)
+	}
+}
+
+
+
+func WriteJSON(w http.ResponseWriter, status int, v any) error{
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(v)
+}
+
+// makeHTTPFunc 
+func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := f(w, r); err != nil{
+			
+		}
+	}
+}
+
+func NewServer(adder string)*Server{
+	return &Server{ListingAdder: adder}
+}
+
+
 func WebhookHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.Header.Get("X-GitHub-Delivery")
 	name := r.Header.Get("X-GitHub-Event")
