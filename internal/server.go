@@ -21,6 +21,10 @@ type APIError struct{
 	Error string
 }
 
+type APIRespone struct{
+	Response string
+}
+
 // logger middleware
 func (s *Server) Logger(next apiFunc) apiFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
@@ -139,6 +143,8 @@ func WebhookHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
+
+
 
 func StartServer(port string) error {
 	mux := http.NewServeMux()
